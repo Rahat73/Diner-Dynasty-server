@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
@@ -8,6 +9,24 @@ const port = process.env.PORT || 5000;
 //middlewares
 app.use(cors());
 app.use(express.json());
+const verifyJWT = (req, res, next) => {
+  const authorization = req.headers.authorization;
+  if (!authorization) {
+    return res
+      .status(401)
+      .send({ error: true, message: "unauthorized access" });
+  }
+  const token = authorization.split(" ")[1];
+  jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
+    if (err) {
+      return res
+        .status(401)
+        .send({ error: true, message: "unauthorized access" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.oahoku5.mongodb.net/?retryWrites=true&w=majority`;
 
@@ -29,6 +48,18 @@ async function run() {
     const reviewsCollection = client.db("DinerDynasty").collection("Reviews");
     const cartsCollection = client.db("DinerDynasty").collection("Carts");
 
+    ////////////////////////JWT////////////////////////
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
+    ////////////////////////JWT////////////////////////
+
+    //----------------------------------------------------------------------------//
+
     ////////////////////////UsersCollection////////////////////////
     app.get("/users", async (req, res) => {
       const result = await usersCollection.find().toArray();
@@ -43,6 +74,25 @@ async function run() {
         return res.send({ message: "User already exists" });
       }
       const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
+
+    app.patch("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await usersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    app.delete("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await usersCollection.deleteOne(query);
       res.send(result);
     });
     ////////////////////////UsersCollection////////////////////////
@@ -68,10 +118,16 @@ async function run() {
     //----------------------------------------------------------------------------//
 
     ////////////////////////CartsCollection////////////////////////
-    app.get("/carts", async (req, res) => {
+    app.get("/carts", verifyJWT, async (req, res) => {
       const email = req.query.email;
       if (!email) {
-        res.send([]);
+        return res.send([]);
+      }
+      const decodedEmail = req.decoded.email;
+      if (decodedEmail !== email) {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden access" });
       }
       const query = { userEmail: email };
       const result = await cartsCollection.find(query).toArray();

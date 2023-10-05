@@ -24,9 +24,30 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
+    const usersCollection = client.db("DinerDynasty").collection("Users");
     const menusCollection = client.db("DinerDynasty").collection("Menus");
     const reviewsCollection = client.db("DinerDynasty").collection("Reviews");
     const cartsCollection = client.db("DinerDynasty").collection("Carts");
+
+    ////////////////////////UsersCollection////////////////////////
+    app.get("/users", async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const query = { userEmail: user.userEmail };
+      const existingUser = await usersCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ message: "User already exists" });
+      }
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
+    ////////////////////////UsersCollection////////////////////////
+
+    //----------------------------------------------------------------------------//
 
     ////////////////////////MenusCollection////////////////////////
     app.get("/menu", async (req, res) => {

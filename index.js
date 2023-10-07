@@ -3,6 +3,7 @@ const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+const stripe = require("stripe")(process.env.PAYMENT_GATEWAY_SK);
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -48,6 +49,7 @@ async function run() {
     const menusCollection = client.db("DinerDynasty").collection("Menus");
     const reviewsCollection = client.db("DinerDynasty").collection("Reviews");
     const cartsCollection = client.db("DinerDynasty").collection("Carts");
+    const paymentsCollection = client.db("DinerDynasty").collection("Payments");
 
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
@@ -184,6 +186,48 @@ async function run() {
       res.send(result);
     });
     ////////////////////////CartsCollection////////////////////////
+
+    //----------------------------------------------------------------------------//
+
+    ////////////////////////PaymentsCollection////////////////////////
+    app.post("/payments", verifyJWT, async (req, res) => {
+      const paymentInfo = req.body;
+
+      if (req.decoded.email !== paymentInfo.email) {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden access" });
+      }
+
+      const insertResult = await paymentsCollection.insertOne(paymentInfo);
+
+      const query = {
+        _id: { $in: paymentInfo.cartItems.map((id) => new ObjectId(id)) },
+      };
+      const deletedResult = await cartsCollection.deleteMany(query);
+
+      res.send({ insertResult, deletedResult });
+    });
+    ////////////////////////PaymentsCollection////////////////////////
+
+    //----------------------------------------------------------------------------//
+
+    ////////////////////////PaymentIntent////////////////////////
+    app.post("/create-payment-intent", verifyJWT, async (req, res) => {
+      const { price } = req.body;
+      const amount = price * 100;
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+    ////////////////////////PaymentIntent////////////////////////
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });

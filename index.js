@@ -215,7 +215,7 @@ async function run() {
     ////////////////////////PaymentIntent////////////////////////
     app.post("/create-payment-intent", verifyJWT, async (req, res) => {
       const { price } = req.body;
-      const amount = price * 100;
+      const amount = parseInt(price * 100);
 
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
@@ -228,6 +228,69 @@ async function run() {
       });
     });
     ////////////////////////PaymentIntent////////////////////////
+
+    //----------------------------------------------------------------------------//
+
+    ////////////////////////AdminStats////////////////////////
+    app.get("/admin-stats", verifyJWT, verifyAdmin, async (req, res) => {
+      const users = await usersCollection.estimatedDocumentCount();
+      const menus = await menusCollection.estimatedDocumentCount();
+      const orders = await paymentsCollection.estimatedDocumentCount();
+      const revenueAggregate = await paymentsCollection
+        .aggregate([
+          {
+            $group: {
+              _id: null,
+              total: { $sum: "$price" },
+            },
+          },
+        ])
+        .toArray();
+      const revenue =
+        revenueAggregate.length > 0 ? revenueAggregate[0].total : 0;
+      res.send({ users, menus, orders, revenue });
+    });
+
+    app.get("/order-stats", verifyJWT, verifyAdmin, async (req, res) => {
+      // Aggregate the total price per category
+      const categoryTotalPricesAndCounts = await paymentsCollection
+        .aggregate([
+          {
+            $unwind: "$menuItems", // Split the array of menu items into separate documents
+          },
+          {
+            $lookup: {
+              from: "Menus",
+              localField: "menuItems",
+              foreignField: "_id",
+              as: "menuDetails",
+            },
+          },
+          {
+            $unwind: "$menuDetails", // Unwind the menuDetails array
+          },
+          {
+            $group: {
+              _id: "$menuDetails.category",
+              total: { $sum: "$menuDetails.price" },
+              itemCount: { $sum: 1 }, // Count the items in each category
+            },
+          },
+          {
+            $project: {
+              _id: 0, // Exclude _id field
+              category: "$_id", // Rename _id to category
+              total: { $round: ["$total", 2] }, // Round total to 2 decimal places
+              itemCount: 1, // Include itemCount field
+            },
+          },
+        ])
+        .toArray();
+
+      res.send(categoryTotalPricesAndCounts);
+    });
+
+    ////////////////////////AdminStats////////////////////////
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });

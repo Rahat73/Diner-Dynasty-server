@@ -182,6 +182,23 @@ async function run() {
       const result = await menusCollection.deleteOne(query);
       res.send(result);
     });
+
+    app.patch("/menus/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const { name, category, price, recipe, image } = req.body;
+      const updateDoc = {
+        $set: {
+          name,
+          category,
+          price,
+          recipe,
+          image,
+        },
+      };
+      const result = await menusCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
     ////////////////////////MenusCollection////////////////////////
 
     //----------------------------------------------------------------------------//

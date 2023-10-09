@@ -4,12 +4,51 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const stripe = require("stripe")(process.env.PAYMENT_GATEWAY_SK);
+const nodemailer = require("nodemailer");
+const mg = require("nodemailer-mailgun-transport");
 const app = express();
 const port = process.env.PORT || 5000;
 
 //middlewares
 app.use(cors());
 app.use(express.json());
+
+const auth = {
+  auth: {
+    api_key: process.env.EMAIL_KEY,
+    domain: process.env.EMAIL_DOMAIN,
+  },
+};
+
+const nodemailerMailgun = nodemailer.createTransport(mg(auth));
+
+const sendPaymentConfirmationEmail = (paymentInfo) => {
+  nodemailerMailgun.sendMail(
+    {
+      from: "rahat.ashik.18@gmail.com",
+      to: "rahat.ashik.18@gmail.com", // An array if you have multiple recipients.
+      subject: "Yor order has been placed",
+      //You can use "html:" to send HTML email content. It's magic!
+      html: `<div>
+      <h3>Payment has been confirmed</h3>
+      <h4>Your order has been placed</h4>
+      <br>
+      <p>Transaction ID: ${paymentInfo.transactionId}</p>
+      <span>Name: ${paymentInfo.name}</span>
+      <span>Email: ${paymentInfo.email}</span>
+      <br>
+      <p>Price: $ ${paymentInfo.price}</p>
+      <div>`,
+    },
+    (err, info) => {
+      if (err) {
+        console.log(`Error: ${err}`);
+      } else {
+        console.log(`Response: ${info}`);
+      }
+    }
+  );
+};
 
 const verifyJWT = (req, res, next) => {
   const authorization = req.headers.authorization;
@@ -205,6 +244,8 @@ async function run() {
         _id: { $in: paymentInfo.cartItems.map((id) => new ObjectId(id)) },
       };
       const deletedResult = await cartsCollection.deleteMany(query);
+
+      sendPaymentConfirmationEmail(paymentInfo);
 
       res.send({ insertResult, deletedResult });
     });

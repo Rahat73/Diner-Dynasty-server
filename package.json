@@ -15,6 +15,8 @@
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.1.0",
+    "nodemailer": "^6.9.5",
+    "nodemailer-mailgun-transport": "^2.1.5",
     "stripe": "^13.9.0"
   }
 }

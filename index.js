@@ -341,6 +341,25 @@ async function run() {
           .status(403)
           .send({ error: true, message: "forbidden access" });
       }
+
+      const currentDate = new Date();
+      // Format the date as "Oct 16 2023"
+      const formattedDate = currentDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+      bookingInfo.bookedOn = formattedDate;
+
+      const query = {
+        email: bookingInfo.email,
+        bookedOn: bookingInfo.bookedOn,
+      };
+      const bookingsByUser = await bookingsCollection.find(query).toArray();
+      if (bookingsByUser.length > 1) {
+        return res.send({ overBooking: true });
+      }
+
       const result = await bookingsCollection.insertOne(bookingInfo);
       res.send(result);
     });

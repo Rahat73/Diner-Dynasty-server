@@ -89,6 +89,10 @@ async function run() {
     const reviewsCollection = client.db("DinerDynasty").collection("Reviews");
     const cartsCollection = client.db("DinerDynasty").collection("Carts");
     const paymentsCollection = client.db("DinerDynasty").collection("Payments");
+    const bookingOptionsCollection = client
+      .db("DinerDynasty")
+      .collection("Booking-Options");
+    const bookingsCollection = client.db("DinerDynasty").collection("Bookings");
 
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
@@ -106,7 +110,7 @@ async function run() {
     app.post("/jwt", (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
-        expiresIn: "1h",
+        expiresIn: "3h",
       });
       res.send({ token });
     });
@@ -286,6 +290,61 @@ async function run() {
       });
     });
     ////////////////////////PaymentIntent////////////////////////
+
+    //----------------------------------------------------------------------------//
+
+    ////////////////////////bookingOptionsCollection////////////////////////
+    app.get("/booking-options", async (req, res) => {
+      const date = req.query.date;
+      const guests = req.query.guests;
+
+      // Assuming you have a "bookingsCollection" containing reservations
+      const reservations = await bookingsCollection
+        .find({ date, guests })
+        .toArray();
+      // Retrieve all booking options
+      const bookingOption = await bookingOptionsCollection
+        .find({ guests })
+        .toArray();
+
+      if (bookingOption.length === 0) {
+        return res
+          .status(404)
+          .send({ error: true, message: "No available options." });
+      }
+
+      const availableTimeSlots = bookingOption[0].timeSlots.map((timeSlot) => {
+        const bookedCount = reservations.filter(
+          (reservation) => reservation.timeSlot === timeSlot.slot
+        ).length;
+        const left = timeSlot.availableCapacity - bookedCount;
+        return {
+          slot: timeSlot.slot,
+          capacity: timeSlot.availableCapacity,
+          left: left,
+        };
+      });
+      const filteredTimeSlots = availableTimeSlots.filter(
+        (timeSlot) => timeSlot.left > 0
+      );
+      res.send(filteredTimeSlots);
+    });
+    ////////////////////////bookingOptionsCollection////////////////////////
+
+    //----------------------------------------------------------------------------//
+
+    ////////////////////////BookingsCollection////////////////////////
+    app.post("/bookings", verifyJWT, async (req, res) => {
+      const bookingInfo = req.body;
+      if (bookingInfo.email !== req.decoded.email) {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden access" });
+      }
+      const result = await bookingsCollection.insertOne(bookingInfo);
+      res.send(result);
+    });
+    ////////////////////////BookingsCollection////////////////////////
 
     //----------------------------------------------------------------------------//
 

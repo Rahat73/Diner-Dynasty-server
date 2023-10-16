@@ -209,7 +209,27 @@ async function run() {
 
     ////////////////////////ReviewsCollection////////////////////////
     app.get("/reviews", async (req, res) => {
-      const result = await reviewsCollection.find().toArray();
+      const result = await reviewsCollection
+        .find()
+        .sort({ rating: -1 })
+        .toArray();
+      res.send(result);
+    });
+
+    app.get("/reviews/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await reviewsCollection.find({ email }).toArray();
+      res.send(result);
+    });
+
+    app.post("/reviews", verifyJWT, async (req, res) => {
+      const reviewInfo = req.body;
+      if (reviewInfo.email !== req.decoded.email) {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden access" });
+      }
+      const result = await reviewsCollection.insertOne(reviewInfo);
       res.send(result);
     });
     ////////////////////////ReviewsCollection////////////////////////

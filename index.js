@@ -250,6 +250,19 @@ async function run() {
     //----------------------------------------------------------------------------//
 
     ////////////////////////PaymentsCollection////////////////////////
+    app.get("/payments", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+
+      if (email !== req.decoded.email) {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden access" });
+      }
+
+      const result = await paymentsCollection.find({ email }).toArray();
+      res.send(result);
+    });
+
     app.post("/payments", verifyJWT, async (req, res) => {
       const paymentInfo = req.body;
 
@@ -258,6 +271,17 @@ async function run() {
           .status(403)
           .send({ error: true, message: "forbidden access" });
       }
+
+      const currentDate = new Date();
+      const formattedDate = currentDate.toLocaleString("en-US", {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+      paymentInfo.date = formattedDate;
 
       const insertResult = await paymentsCollection.insertOne(paymentInfo);
 
@@ -334,6 +358,17 @@ async function run() {
     //----------------------------------------------------------------------------//
 
     ////////////////////////BookingsCollection////////////////////////
+    app.get("/bookings", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+      if (email !== req.decoded.email) {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden access" });
+      }
+      const result = await bookingsCollection.find({ email }).toArray();
+      res.send(result);
+    });
+
     app.post("/bookings", verifyJWT, async (req, res) => {
       const bookingInfo = req.body;
       if (bookingInfo.email !== req.decoded.email) {
@@ -361,6 +396,13 @@ async function run() {
       }
 
       const result = await bookingsCollection.insertOne(bookingInfo);
+      res.send(result);
+    });
+
+    app.delete("/bookings/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await bookingsCollection.deleteOne(query);
       res.send(result);
     });
     ////////////////////////BookingsCollection////////////////////////

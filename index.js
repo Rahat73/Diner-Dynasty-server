@@ -146,7 +146,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/users/admin/:id", async (req, res) => {
+    app.patch("/users/admin/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updateDoc = {
@@ -158,7 +158,7 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/users/:id", async (req, res) => {
+    app.delete("/users/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await usersCollection.deleteOne(query);
@@ -378,8 +378,13 @@ async function run() {
     //----------------------------------------------------------------------------//
 
     ////////////////////////BookingsCollection////////////////////////
-    app.get("/bookings", verifyJWT, async (req, res) => {
-      const email = req.query.email;
+    app.get("/bookings", verifyJWT, verifyAdmin, async (req, res) => {
+      const result = await bookingsCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/bookings/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
       if (email !== req.decoded.email) {
         return res
           .status(403)
@@ -416,6 +421,18 @@ async function run() {
       }
 
       const result = await bookingsCollection.insertOne(bookingInfo);
+      res.send(result);
+    });
+
+    app.patch("/bookings/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          status: "confirmed",
+        },
+      };
+      const result = await bookingsCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
 

@@ -26,7 +26,7 @@ const sendPaymentConfirmationEmail = (paymentInfo) => {
   nodemailerMailgun.sendMail(
     {
       from: "rahat.ashik.18@gmail.com",
-      to: "rahat.ashik.18@gmail.com", // An array if you have multiple recipients.
+      to: paymentInfo.email, // An array if you have multiple recipients.
       subject: "Yor order has been placed",
       //You can use "html:" to send HTML email content. It's magic!
       html: `<div>
